@@ -6,10 +6,8 @@ import io.opentracing.propagation.Format
 import io.opentracing.tag.Tags
 import io.opentracing.threadcontext.ContextSpan
 import java.util.concurrent.Callable
-
 import akka.stream.ActorMaterializer
 import play.api.mvc._
-
 import scala.concurrent.{ExecutionContext, Future}
 
 private object RequestSpan {
@@ -39,7 +37,11 @@ class TracingActionBuilder(protected[this] val tracer: Tracer, protected[this] v
    */
   protected def finishSpan[A](request: TracingRequest[A], result: Result): Result = {
     taggers.foreach(_.tag(request.span, request, result))
-    request.span.finish()
+    result.body.dataStream.watchTermination() { (_, done) =>
+      done.onComplete { _ =>
+        request.span.finish()
+      }
+    }
     result
   }
 
